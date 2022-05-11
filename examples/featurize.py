@@ -8,7 +8,7 @@
 from feat_utils import linear_polymer,write_out
 import pickle as pkl
 
-idps = linear_polymer('metadata/seqs.list', 'metadata/idp_database.csv')
+idps = linear_polymer('metadata/seqs.list', 'metadata/DatasetA_metadata.csv')
 
 #scaled OHE fingerprint for polymers
 scaled_fp = idps.scaled_fingerprint(database_col='OHE')
