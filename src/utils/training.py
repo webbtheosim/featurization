@@ -1,3 +1,10 @@
+"""
+Author(s):
+                Roshan Patel <roshanp@princeton.edu>
+Contributor(s):
+                Michael Webb <mawebb@princeton.edu>
+"""
+
 import os
 import pickle as pkl
 import numpy as np
@@ -40,7 +47,7 @@ def trial_loader(path,summariespath,foldnumber):
     return trial_container
 
 def create_dir(dirname):
-    
+
   try:
     os.mkdir(dirname)
   except FileExistsError:
@@ -50,20 +57,20 @@ def create_dir(dirname):
   return
 
 def splitIDs(trainID,testID,full_indicies):
-    
+
     training = np.array([])
     for index in trainID:
         matching_indices = np.where(full_indicies==index)
         training = np.append(training,matching_indices)
-    
+
     test = np.array([])
     for index in testID:
         matching_indices = np.where(full_indicies==index)
         test = np.append(test,matching_indices)
-        
+
     training = np.array(training,dtype=int)
     test = np.array(test,dtype=int)
-    
+
     return training,test
 
 
@@ -103,5 +110,5 @@ class EarlyStoppingAtMinLoss(tf.keras.callbacks.Callback):
     def on_train_end(self, logs=None):
         if self.stopped_epoch > 0:
             print("Epoch %05d: early stopping" % (self.stopped_epoch + 1))
-   
+
 

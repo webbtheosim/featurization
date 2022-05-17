@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-@author: Roshan
+Author(s):
+                Roshan Patel <roshanp@princeton.edu>
+Contributor(s):
+                Michael Webb <mawebb@princeton.edu>
 """
 
 import argparse
@@ -20,7 +23,7 @@ from training_utils import write_params,trial_loader, create_dir, splitIDs, Earl
 
 def create_parser():
 
-    parser = argparse.ArgumentParser(description='Testing neural network stuff.')
+    parser = argparse.ArgumentParser(description='Training implementation for convolutional neural network.')
 
     parser.add_argument('-input'   ,default=None,help = 'Name of file with data inputs. (default: None)')
     parser.add_argument('-label'  ,default=None,help = 'Name of file with data labels. (default: None)')
@@ -33,7 +36,7 @@ def create_parser():
     return parser
 
 
-class myModel(tf.keras.Model):    
+class myModel(tf.keras.Model):
     def __init__(self,params):
         super().__init__()
         #conv1
@@ -50,14 +53,14 @@ class myModel(tf.keras.Model):
             self.pool1 = None
         else:
             sys.exit('Error on pool layer 1')
-            
+
         #conv2 / pool2
         if params['CNN_L2']['state'] == 'present':
             self.conv2 = tf.keras.layers.Conv1D(params['CNN_L2']['filter'],params['CNN_L2']['kernel'],activation='relu')
             if params['CNN_L2']['pooling']['state'] == 'present':
                 if params['CNN_L2']['pooling']['type'] == 'avg':
                     self.pool2 = tf.keras.layers.AveragePooling1D(params['CNN_L2']['pooling']['pool_size'])
-                elif params['CNN_L2']['pooling']['type'] == 'max':    
+                elif params['CNN_L2']['pooling']['type'] == 'max':
                     self.pool2 = tf.keras.layers.MaxPool1D(params['CNN_L2']['pooling']['pool_size'])
                 else:
                     sys.exit('Error on pool2')
@@ -65,21 +68,21 @@ class myModel(tf.keras.Model):
                 self.pool2 = None
             else:
                 sys.exit('Error on pool layer 2')
-            
+
         elif params['CNN_L2']['state'] == 'absent':
             self.conv2 = None
             self.pool2 = None
         else:
             sys.exit('Error on conv layer 2')
-        
-        
+
+
         self.flatten = tf.keras.layers.Flatten()
 
         #dense1
         self.dense1 = tf.keras.layers.Dense(params['s1'],activation='relu')
         #drop1
         self.drop1  = tf.keras.layers.Dropout(params['d1'])
-        
+
         #dense2
         if params['layer2']['state'] == 'present':
             self.dense2 = tf.keras.layers.Dense(params['layer2']['s2'],activation='relu')
@@ -89,9 +92,9 @@ class myModel(tf.keras.Model):
             self.drop2  = None
         else:
             sys.exit('Problem on dense layer 2')
-            
+
         self.dense3 = tf.keras.layers.Dense(1)
-        
+
     def call(self,x):
         y = self.conv1(x)
         if self.pool1 is not None: y = self.pool1(y)
@@ -104,17 +107,17 @@ class myModel(tf.keras.Model):
         if self.drop2  is not None: y = self.drop2(y)
         y = self.dense3(y)
         return y
-    
-    
+
+
 def return_paramspace():
 
     paramSpace = {
-    
+
         'filter':scope.int(hp.quniform('filter1', 8, 64, 8)), ####
         'kernel':scope.int(hp.quniform('kernel1', 5, 25, 5)), ####
-    
+
         'CNN_L1a': hp.choice('cnnl1a',[
-    
+
             {
             'state':'present',
             'pool_size':scope.int(hp.quniform('pool1', 3, 9, 2)),
@@ -124,9 +127,9 @@ def return_paramspace():
             'state':'absent'
             }
             ]),
-    
+
         'CNN_L2': hp.choice('cnnl2',[
-    
+
             {
             'state':'present',
             'filter':scope.int(hp.quniform('filter2', 8, 64, 8)),
@@ -136,24 +139,24 @@ def return_paramspace():
                 'state':'present',
                 'pool_size':scope.int(hp.quniform('pool2', 3, 9, 2)), ####
                 'type':hp.choice('pt2',['max','avg'])
-                    
+
                 },
                 {
                 'state':'absent'
                 }])
             },
-    
+
             {
             'state':'absent'
             }
-    
+
             ]),
-    
-    
+
+
         #layer 1 options
         's1':scope.int(hp.quniform('s1', 10, 750, 20)),
         'd1':hp.quniform('d1', 0, 0.8, 0.1),
-    
+
         #layer 2 options
         'layer2':hp.choice('layer2',[
             {
@@ -165,26 +168,26 @@ def return_paramspace():
             'state':'absent'
             },
             ]),
-    
+
         'lr':hp.choice('lr', [0.001, 0.005,0.01]),
         'bs':hp.choice('bs',[32,64,128,256])
-    
+
         }
-    
+
     return paramSpace
-    
+
 def build_model(params):
-    
+
     model = myModel(params)
     lr = params['lr']
     optimizer = tf.keras.optimizers.Adam(learning_rate = lr)
-    model.compile(optimizer=optimizer,loss='mse',metrics=['mae']) 
-    
+    model.compile(optimizer=optimizer,loss='mse',metrics=['mae'])
+
     return model
 
 
 def objective_function(params,data,labels,ids,trainID,summariespath,foldnumber,innerfold,trials):
-    
+
     temp_path = '{}/fold{}_hpsummary.txt'.format(summariespath,foldnumber)
     with open(temp_path,'a') as fid:
         fid.write('~~~~~~Trial {} Hyperparameters~~~~~~~'.format(len(trials)))
@@ -197,16 +200,16 @@ def objective_function(params,data,labels,ids,trainID,summariespath,foldnumber,i
     splits2 = [(trainID[train],trainID[test]) for (train,test) in kfold2.split(trainID)]
     mses = Parallel(n_jobs=innerfold)(delayed(parallel_k2)(split,params,data,labels,ids) for split in splits2)
     loss = np.mean(mses)
-    
+
     with open(temp_path,'a') as fid:
         fid.write('Loss: {:.2f}'.format(loss) + '\n')
-    
+
     return loss
 
 
 
 def parallel_k2(split,params,data,labels,ids):
-    
+
     (i_trainID, i_testID) = split
     i_train_index,i_test_index = splitIDs(i_trainID,i_testID,ids)
 
@@ -214,46 +217,46 @@ def parallel_k2(split,params,data,labels,ids):
     batch_size = params['bs']
     model.fit(data[i_train_index,:],labels[i_train_index],
                 callbacks=EarlyStoppingAtMinLoss(50),
-                validation_split=0.15,shuffle=True, 
+                validation_split=0.15,shuffle=True,
                 epochs=400,batch_size=batch_size,verbose=0)
     gc.collect()
 
     i_xtest  = data[i_test_index]
     i_ytest  = labels[i_test_index]
     y_predict = model.predict(i_xtest)
-    
-    try: 
+
+    try:
         mse = mean_squared_error(i_ytest,y_predict)
     except:
         mse = np.inf
-    
+
     return mse
 
 
 def main():
-    
+
     parser = create_parser()
     args   = parser.parse_args()
-    
+
     datapath  = args.input
     labelpath = args.label
-    idpath    = args.dataID 
-    
-    
+    idpath    = args.dataID
+
+
     resultspath = '{}/results'.format(args.job)
     summariespath = '{}/summaries'.format(args.job)
     create_dir(args.job)
     create_dir(resultspath)
     create_dir(summariespath)
-    
+
     outerfold = int(args.outerk)
     foldnumber= int(args.foldnumber)
     innerfold = int(args.innerk)
-        
+
     #create the dir that has a summary of the outputs
     if foldnumber == 0:
         create_dir(summariespath)
-    
+
     #load in the data
     with open(datapath,'rb') as fid:
         data = pkl.load(fid)
@@ -261,19 +264,19 @@ def main():
         channels  = data.shape[-1]
         width      = data.shape[-2]
         height     = data.shape[-3]
-    
+
     #load in the labels
     with open(labelpath,'rb') as fid:
         labels = pkl.load(fid)
         labels = np.array(labels)
-    
+
     #load in the dataids
     if idpath is not None:
         with open(idpath,'rb') as fid:
             ids = pkl.load(fid).flatten()
     else:
         ids = np.arange(data.shape[0])
-        
+
     unique_ids = np.unique(ids)
 
     #this is to approximiately stratify by DP
@@ -284,24 +287,24 @@ def main():
             tags.append(counter)
         counter+=1
     tags = np.array(tags)
-    
+
     #run k=5 fold to evaluate the model on different splits of the data
-    
+
     kfold1 = StratifiedKFold(n_splits = 5,shuffle=True,random_state = 27)
     trainID = [unique_ids[train] for (train,test) in kfold1.split(X=unique_ids,y=tags)][foldnumber]
     testID  = [unique_ids[test] for (train,test) in kfold1.split(X=unique_ids,y=tags)][foldnumber]
     train_index,test_index = splitIDs(trainID, testID, ids)
-    
+
 
     #determine the best hyperparameters
     try:
         trials = trial_loader('trials',summariespath,resultspath)
     except:
         trials = Trials()
-        
+
     paramSpace = return_paramspace()
-    
-    
+
+
     fmin_objective = partial(objective_function,
                              data=data,
                              labels = labels,
@@ -312,61 +315,61 @@ def main():
                              innerfold = innerfold,
                              trials = trials,
                              )
-    
+
     best = fmin(
           fn=fmin_objective,
           space=paramSpace,
           algo=tpe.suggest,
-          max_evals=200, 
+          max_evals=200,
           trials=trials)
-    
+
     best_params = space_eval(paramSpace, best)
-    
+
     #build the model, write out the best parameters and the performance
-    
+
     model = build_model(best_params)
     bs = best_params['bs']
     model.fit(data[train_index,:],labels[train_index],
                     callbacks=EarlyStoppingAtMinLoss(50),
-                    validation_split=0.15,shuffle=True, 
+                    validation_split=0.15,shuffle=True,
                     epochs=400,batch_size=bs,verbose=0)
     gc.collect()
-    
+
     x_test = data[test_index,:]
     y_test = labels[test_index]
     y_predict = model.predict(x_test)
     r2 = r2_score(y_test,y_predict)
     mae = mean_absolute_error(y_test, y_predict)
-    
+
     model.save('{}/model{}'.format(summariespath,foldnumber))
-    #write out the results 
+    #write out the results
     with open('{}/fold{}_predictions.txt'.format(summariespath,foldnumber),'a') as fid:
         for i in range(len(y_predict)):
             fid.write(str(y_predict[i]) + ' ' + str(y_test[i]))
             fid.write('\n')
-    
+
     temp_path = '{}/Model_{}_Hyperparameters.txt'.format(resultspath,foldnumber)
     with open(temp_path,'a') as fid:
         fid.write('~~~~~~Fold {} Hyperparameters~~~~~~~'.format(foldnumber))
         fid.write('\n')
     write_params(best_params,path=temp_path)
-                
+
     with open('{}/Model_{}_Performance.txt'.format(resultspath,foldnumber),'a') as fid:
         fid.write('~~~~~~Fold {} Performance~~~~~~~'.format(foldnumber))
         fid.write('\n')
         fid.write('MAE: {:.3f}'.format(mae)+'\n')
         fid.write('R2 : {:.3f}'.format(r2)+'\n')
-        
+
     return
 
 
 if __name__ == '__main__':
     main()
-    
 
-    
-    
-    
-    
-    
+
+
+
+
+
+
 
